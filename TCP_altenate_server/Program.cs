@@ -13,11 +13,12 @@ namespace HTTPServer
     // Класс-обработчик клиента
     class ClientClass
     {
+        int curr_client_num;
         private void SendError(TcpClient Client, string err)
         {
             string Str = "ERROR: " + err;
             // Вывод в консоль сервера всякой хрени
-            Console.Write("\nError " + err + " has been sent to the client.");
+            Console.WriteLine("\nError " + err + " has been sent to the client #" + curr_client_num.ToString() + ".");
             // Приведем строку к виду массива байт
             byte[] Buffer = Encoding.ASCII.GetBytes(Str);
             // Отправим его клиенту
@@ -36,7 +37,7 @@ namespace HTTPServer
         private void SendMessage(TcpClient Client, string msg)
         {
             // Вывод в консоль сервера всякой хрени
-            Console.Write("\nMessage \"" + msg + "\" has been sent to the client.");
+            Console.WriteLine("\nMessage \"" + msg + "\" has been sent to the client #" + curr_client_num.ToString() + ".");
             // Приведем строку к виду массива байт
             byte[] Buffer = Encoding.ASCII.GetBytes(msg);
             // Отправим его клиенту
@@ -50,8 +51,9 @@ namespace HTTPServer
             }
         }
 
-        public ClientClass(TcpClient Client)
+        public ClientClass(TcpClient Client, int num)
         {
+            curr_client_num = num;
             // Объявим строку, в которой будет хранится запрос клиента
             string Request = "";
             // Буфер для хранения принятых от клиента данных
@@ -63,7 +65,7 @@ namespace HTTPServer
             {
                 // Преобразуем эти данные в строку и добавим ее к переменной Request
                 Request += Encoding.ASCII.GetString(Buffer, 0, Count);
-                Console.Write("\nClient@My-Awesome-Server:$ " + Request);
+                Console.Write("\nClient-"+curr_client_num.ToString()+"@My-Awesome-Server:$ " + Request);
                 // SendMessage(Client, "Hello!");
                 break;
             }
@@ -105,10 +107,17 @@ namespace HTTPServer
             {
                 string[] parts = Request.Split('"');
                 string fileName = parts[1];
-                StreamReader file = new StreamReader(fileName);
-                string text = file.ReadToEnd();
-                SendMessage(Client, text);
-                file.Close();
+                try
+                {
+                    StreamReader file = new StreamReader(fileName);
+                    string text = file.ReadToEnd();
+                    SendMessage(Client, text);
+                    file.Close();
+                }
+                catch (Exception e)
+                {
+                    SendError(Client, "no such file exist on the server!");
+                }
             }
             //// Посылаем заголовки
             //string Headers = "HTTP/1.1 200 OK\nContent-Type: " + ContentType + "\nContent-Length: " + FS.Length + "\n\n";
@@ -133,7 +142,7 @@ namespace HTTPServer
     class Server
     {
         TcpListener Listener; // Объект, принимающий TCP-клиентов
-
+        static int clientNum = 0;
         // Запуск сервера
         public Server(int Port)
         {
@@ -155,8 +164,9 @@ namespace HTTPServer
 
         static void ClientThread(Object StateInfo)
         {
-            Console.WriteLine("New client connected. ");
-            new ClientClass((TcpClient)StateInfo);
+            clientNum++;
+            Console.WriteLine("Client " + clientNum.ToString() + " connected.");
+            new ClientClass((TcpClient)StateInfo, clientNum);
         }
 
         // Остановка сервера
