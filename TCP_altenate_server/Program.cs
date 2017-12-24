@@ -13,16 +13,8 @@ namespace HTTPServer
     // Класс-обработчик клиента
     class ClientClass
     {
-        // Отправка страницы с ошибкой
         private void SendError(TcpClient Client, string err)
         {
-            //// Получаем строку вида "200 OK"
-            //// HttpStatusCode хранит в себе все статус-коды HTTP/1.1
-            //string CodeStr = Code.ToString() + " " + ((HttpStatusCode)Code).ToString();
-            //// Код простой HTML-странички
-            //string Html = "<html><body><h1>" + CodeStr + "</h1></body></html>";
-            //// Необходимые заголовки: ответ сервера, тип и длина содержимого. После двух пустых строк - само содержимое
-            //string Str = "HTTP/1.1 " + CodeStr + "\nContent-type: text/html\nContent-Length:" + Html.Length.ToString() + "\n\n" + Html;
             string Str = "ERROR: " + err;
             // Вывод в консоль сервера всякой хрени
             Console.Write("\nError " + err + " has been sent to the client.");
@@ -33,9 +25,9 @@ namespace HTTPServer
             {
                 Client.GetStream().Write(Buffer, 0, Buffer.Length);
             }
-            catch(Exception e)
+            catch (Exception e)
             {
-                
+
             }
             // Закроем соединение
             Client.Close();
@@ -44,7 +36,7 @@ namespace HTTPServer
         private void SendMessage(TcpClient Client, string msg)
         {
             // Вывод в консоль сервера всякой хрени
-            Console.Write("\nMessage " + msg + " has been sent to the client.");
+            Console.Write("\nMessage \"" + msg + "\" has been sent to the client.");
             // Приведем строку к виду массива байт
             byte[] Buffer = Encoding.ASCII.GetBytes(msg);
             // Отправим его клиенту
@@ -72,22 +64,52 @@ namespace HTTPServer
                 // Преобразуем эти данные в строку и добавим ее к переменной Request
                 Request += Encoding.ASCII.GetString(Buffer, 0, Count);
                 Console.Write("\nClient@My-Awesome-Server:$ " + Request);
-                SendMessage(Client, "Hello!");
+                // SendMessage(Client, "Hello!");
                 break;
             }
 
             // Парсим строку запроса с использованием регулярных выражений
             // При этом отсекаем все переменные GET-запроса
-            Match ReqMatch = Regex.Match(Request, @"save .+");
+            Match SaveReqMatch = Regex.Match(Request, "save \".+\" to \".+\"");
+            Match GetReqMatch = Regex.Match(Request, "give me \".+\" please");
 
             // Если запрос не удался
-            if (ReqMatch == Match.Empty)
+            if (SaveReqMatch == Match.Empty && GetReqMatch == Match.Empty)
             {
                 // Передаем клиенту ошибку 400 - неверный запрос
                 SendError(Client, "400 bad request");
                 return;
             }
+            if (SaveReqMatch != Match.Empty)
+            {
+                string[] parts = Request.Split('"');
+                string text = parts[1];
+                string fileName = parts[3];
+                StreamWriter file = new StreamWriter(fileName);
+                try
+                {
+                    file.Write(text);
+                }
+                catch
+                {
+                    Console.WriteLine("Oh crap...");
+                    File.Create(fileName);
+                    file.WriteLine(text);
+                }
+                Console.WriteLine("Written to "+fileName);
+                SendMessage(Client, "done.");
+                file.Close();
+            }
 
+            else if (GetReqMatch != Match.Empty)
+            {
+                string[] parts = Request.Split('"');
+                string fileName = parts[1];
+                StreamReader file = new StreamReader(fileName);
+                string text = file.ReadToEnd();
+                SendMessage(Client, text);
+                file.Close();
+            }
             //// Посылаем заголовки
             //string Headers = "HTTP/1.1 200 OK\nContent-Type: " + ContentType + "\nContent-Length: " + FS.Length + "\n\n";
             //byte[] HeadersBuffer = Encoding.ASCII.GetBytes(Headers);
